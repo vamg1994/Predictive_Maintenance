@@ -1,8 +1,9 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
+from imblearn.under_sampling import RandomUnderSampler
 
-def load_and_preprocess_data(file_path):
+def load_and_preprocess_data(file_path, balance_data=True):
     # Load the dataset
     df = pd.read_csv(file_path)
     
@@ -23,8 +24,15 @@ def load_and_preprocess_data(file_path):
     X = df.drop(['Target', 'Failure Type'], axis=1)
     y = df['Target']
     
-    # Split data into train and test sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # Apply Random Under Sampling before train-test split if balance_data is True
+    if balance_data:
+        rus = RandomUnderSampler(random_state=42)
+        X_balanced, y_balanced = rus.fit_resample(X, y)
+    else:
+        X_balanced, y_balanced = X, y
+    
+    # Split balanced data into train and test sets
+    X_train, X_test, y_train, y_test = train_test_split(X_balanced, y_balanced, test_size=0.2, random_state=42)
     
     # Scale features
     scaler = StandardScaler()

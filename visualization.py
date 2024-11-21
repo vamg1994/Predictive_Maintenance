@@ -250,6 +250,134 @@ def plot_feature_importance(model, feature_names, X, y):
     
     return fig
 
+def plot_feature_distributions(df):
+    # Select numerical columns only
+    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+    numeric_cols = [col for col in numeric_cols if col not in ['Target', 'Failure Type']]
+    
+    # Create subplots
+    fig = go.Figure()
+    
+    for col in numeric_cols:
+        # Add histogram for each feature
+        fig.add_trace(go.Histogram(
+            x=df[col],
+            name=col,
+            visible=False,
+            nbinsx=30
+        ))
+    
+    # Make first trace visible
+    fig.data[0].visible = True
+    
+    # Create buttons for each feature
+    buttons = []
+    for i, col in enumerate(numeric_cols):
+        buttons.append({
+            'label': col,
+            'method': 'update',
+            'args': [{'visible': [j == i for j in range(len(numeric_cols))]},
+                    {'title': f'Distribution of {col}'}]
+        })
+    
+    # Update layout
+    fig.update_layout(
+        updatemenus=[{
+            'buttons': buttons,
+            'direction': 'down',
+            'showactive': True,
+            'x': 0.1,
+            'y': 1.15
+        }],
+        title=f'Distribution of {numeric_cols[0]}',
+        height=500
+    )
+    
+    return fig
+
+def plot_correlation_matrix(df):
+    # Calculate correlation matrix
+    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+    corr_matrix = df[numeric_cols].corr()
+    
+    # Create heatmap
+    fig = go.Figure(data=go.Heatmap(
+        z=corr_matrix,
+        x=corr_matrix.columns,
+        y=corr_matrix.columns,
+        colorscale='RdBu',
+        zmin=-1,
+        zmax=1,
+        text=np.round(corr_matrix, 2),
+        texttemplate='%{text}',
+        textfont={'size': 10}
+    ))
+    
+    fig.update_layout(
+        title='Feature Correlation Matrix',
+        height=700,
+        width=700
+    )
+    
+    return fig
+
+def plot_feature_vs_target(df, feature):
+    fig = go.Figure()
+    
+    # Add box plots for each target class
+    for target in [0, 1]:
+        fig.add_trace(go.Box(
+            y=df[df['Target'] == target][feature],
+            name=f'{"Failure" if target == 1 else "No Failure"}',
+            boxpoints='all',
+            jitter=0.3,
+            pointpos=-1.8
+        ))
+    
+    fig.update_layout(
+        title=f'{feature} Distribution by Machine Status',
+        yaxis_title=feature,
+        showlegend=True,
+        height=500
+    )
+    
+    return fig
+
+def plot_machine_type_distribution(df):
+    type_counts = df['Type'].value_counts()
+    
+    fig = go.Figure(data=[go.Pie(
+        labels=type_counts.index,
+        values=type_counts.values,
+        hole=0.3
+    )])
+    
+    fig.update_layout(
+        title='Distribution of Machine Types',
+        height=400
+    )
+    
+    return fig
+
+def plot_failure_type_distribution(df):
+    failure_counts = df['Failure Type'].value_counts()
+    
+    fig = go.Figure(data=[go.Bar(
+        x=failure_counts.index,
+        y=failure_counts.values,
+        text=failure_counts.values,
+        textposition='auto'
+    )])
+    
+    fig.update_layout(
+        title='Distribution of Failure Types',
+        xaxis_title='Failure Type',
+        yaxis_title='Count',
+        height=400
+    )
+    
+    return fig
+
 def plot_cv_scores(cv_results):
     # Create DataFrame for CV scores
     df = pd.DataFrame({

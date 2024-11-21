@@ -1,208 +1,52 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import glob
-import os
-import pickle
-import plotly.express as px
-import plotly.graph_objects as go
-import plotly.figure_factory as ff
 from preprocessing import load_and_preprocess_data, prepare_single_prediction
 from models import ModelTrainer
 from visualization import (
-    plot_model_comparison, plot_confusion_matrix, plot_feature_importance, 
-    plot_cv_scores, plot_classification_report
+    plot_model_comparison, plot_classification_report, 
+    plot_confusion_matrix, plot_feature_importance,
+    plot_cv_scores, plot_feature_distributions,
+    plot_correlation_matrix, plot_feature_vs_target,
+    plot_machine_type_distribution, plot_failure_type_distribution
 )
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-
-def load_test_data():
-    """Load test data for computing missing metrics"""
-    X_train, X_test, y_train, y_test, _, _ = load_and_preprocess_data('predictive_maintenance.csv')
-    return X_test, y_test
-
-def load_trained_models():
-    """Load all trained models and their results from the 'trained models' directory"""
-    models = {}
-    results = {}
-    
-    try:
-        # Ensure the trained models directory exists
-        os.makedirs('trained models', exist_ok=True)
-        model_files = glob.glob(os.path.join('trained models', '*.pkl'))
-        
-        if not model_files:
-            st.info("No pre-trained models found. Please train new models.")
-            return None, None
-        
-        for model_file in model_files:
-            try:
-                model_name = os.path.basename(model_file).replace('.pkl', '')
-                # Skip files with 'best_model' in the name
-                if 'best_model' in model_name.lower():
-                    continue
-                    
-                with open(model_file, 'rb') as f:
-                    model_data = pickle.load(f)
-                    
-                    if isinstance(model_data, dict) and 'model' in model_data:
-                        # Store the model data
-                        models[model_name] = model_data
-                        
-                        # Initialize missing metrics if needed
-                        if not all(key in model_data for key in ['confusion_matrix', 'classification_report', 'cv_results']):
-                            X_test, y_test = load_test_data()
-                            y_pred = model_data['model'].predict(X_test)
-                            
-                            # Update missing metrics
-                            model_data.setdefault('confusion_matrix', 
-                                confusion_matrix(y_test, y_pred))
-                            model_data.setdefault('classification_report', 
-                                classification_report(y_test, y_pred))
-                            model_data.setdefault('cv_results', {
-                                'mean_score': accuracy_score(y_test, y_pred),
-                                'std_score': 0.0
-                            })
-                            
-                            # Save updated model data
-                            with open(model_file, 'wb') as f:
-                                pickle.dump(model_data, f)
-                        
-                        # Store results for comparison
-                        results[model_name] = {
-                            'accuracy': model_data.get('accuracy', 0.0),
-                            'classification_report': model_data.get('classification_report', ''),
-                            'confusion_matrix': model_data.get('confusion_matrix'),
-                            'cv_mean_score': model_data.get('cv_results', {}).get('mean_score', 0.0),
-                            'cv_std_score': model_data.get('cv_results', {}).get('std_score', 0.0),
-                            'best_params': model_data.get('best_params', {})
-                        }
-                        
-                        st.success(f"Successfully loaded model: {model_name}")
-                    else:
-                        st.warning(f"Invalid model data format in {model_name}")
-                        
-            except Exception as e:
-                st.warning(f"Error loading model {os.path.basename(model_file)}: {str(e)}")
-                continue
-        
-        if not models:
-            st.warning("No valid models could be loaded. Please train new models.")
-            return None, None
-            
-        st.success(f"Successfully loaded {len(models)} models with all required metrics!")
-        return models, results
-        
-    except Exception as e:
-        st.error(f"Error accessing models directory: {str(e)}")
-        return None, None
+import os
+import pickle
+import plotly.graph_objects as go
+from datetime import datetime
 
 def load_raw_data():
-    """Load the raw data without preprocessing for exploration"""
     return pd.read_csv('predictive_maintenance.csv')
 
-def plot_feature_distributions(df):
-    """Create distribution plots for numerical features"""
-    numerical_features = ['Air temperature [K]', 'Process temperature [K]', 
-                         'Rotational speed [rpm]', 'Torque [Nm]', 'Tool wear [min]']
+def load_trained_models():
+    models = {}
+    results = {}
+    model_dir = 'trained models'
     
-    fig = go.Figure()
-    for feature in numerical_features:
-        fig.add_trace(go.Histogram(
-            x=df[feature],
-            name=feature,
-            nbinsx=30,
-            opacity=0.7
-        ))
-    
-    fig.update_layout(
-        title='Distribution of Numerical Features',
-        barmode='overlay',
-        xaxis_title='Value',
-        yaxis_title='Count',
-        showlegend=True,
-        height=500
-    )
-    return fig
-
-def plot_correlation_matrix(df):
-    """Create correlation matrix heatmap"""
-    numerical_features = ['Air temperature [K]', 'Process temperature [K]', 
-                         'Rotational speed [rpm]', 'Torque [Nm]', 'Tool wear [min]', 'Target']
-    corr_matrix = df[numerical_features].corr()
-    
-    fig = go.Figure(data=go.Heatmap(
-        z=corr_matrix,
-        x=numerical_features,
-        y=numerical_features,
-        colorscale='RdBu',
-        zmin=-1,
-        zmax=1,
-        text=np.round(corr_matrix, 2),
-        texttemplate='%{text}',
-        textfont={"size": 10},
-        hoverongaps=False
-    ))
-    
-    fig.update_layout(
-        title='Feature Correlation Matrix',
-        height=600,
-        width=800
-    )
-    return fig
-
-def plot_feature_vs_target(df, feature):
-    """Create box plots for numerical features vs target"""
-    fig = go.Figure()
-    
-    for target in [0, 1]:
-        fig.add_trace(go.Box(
-            y=df[df['Target'] == target][feature],
-            name=f'{"Failure" if target == 1 else "No Failure"}',
-            boxpoints='outliers'
-        ))
-    
-    fig.update_layout(
-        title=f'{feature} Distribution by Machine Status',
-        yaxis_title=feature,
-        showlegend=True,
-        height=400
-    )
-    return fig
-
-def plot_machine_type_distribution(df):
-    """Create a pie chart for machine type distribution"""
-    type_counts = df['Type'].value_counts()
-    
-    fig = go.Figure(data=[go.Pie(
-        labels=type_counts.index,
-        values=type_counts.values,
-        hole=0.3
-    )])
-    
-    fig.update_layout(
-        title='Distribution of Machine Types',
-        height=400
-    )
-    return fig
-
-def plot_failure_type_distribution(df):
-    """Create a bar chart for failure type distribution"""
-    failure_counts = df['Failure Type'].value_counts()
-    
-    fig = go.Figure(data=[go.Bar(
-        x=failure_counts.index,
-        y=failure_counts.values,
-        text=failure_counts.values,
-        textposition='auto'
-    )])
-    
-    fig.update_layout(
-        title='Distribution of Failure Types',
-        xaxis_title='Failure Type',
-        yaxis_title='Count',
-        height=400
-    )
-    return fig
+    if not os.path.exists(model_dir):
+        return None, None
+        
+    try:
+        for filename in os.listdir(model_dir):
+            if filename.endswith('.pkl'):
+                filepath = os.path.join(model_dir, filename)
+                with open(filepath, 'rb') as f:
+                    model_data = pickle.load(f)
+                    model_name = filename.replace('.pkl', '')  # Keep the timestamp in name
+                    models[model_name] = model_data
+                    
+                    # Extract results
+                    results[model_name] = {
+                        'accuracy': model_data.get('accuracy'),
+                        'classification_report': model_data.get('classification_report'),
+                        'confusion_matrix': model_data.get('confusion_matrix'),
+                        'best_params': model_data.get('best_params', {}),
+                        'cv_mean_score': model_data.get('cv_results', {}).get('mean_score'),
+                        'cv_std_score': model_data.get('cv_results', {}).get('std_score')
+                    }
+        return models, results
+    except Exception as e:
+        st.error(f"Error loading models: {str(e)}")
+        return None, None
 
 def main():
     st.title('Predictive Maintenance Application')
@@ -295,11 +139,55 @@ def main():
     elif page == 'Model Training':
         st.header('Model Training')
         
-        if st.button('Train Models'):
+        # Hyperparameter tuning UI
+        st.subheader('Hyperparameter Configuration')
+        
+        with st.expander('Random Forest Parameters'):
+            rf_params = {
+                'n_estimators': [st.slider('Number of Trees', 50, 500, 200, 50)],
+                'max_depth': [st.slider('Maximum Depth', 5, 50, 20, 5)],
+                'min_samples_split': [st.slider('Minimum Samples Split', 2, 20, 5, 1)],
+                'min_samples_leaf': [st.slider('Minimum Samples Leaf', 1, 10, 2, 1)]
+            }
+            
+        with st.expander('Logistic Regression Parameters'):
+            lr_params = {
+                'C': [st.select_slider('Regularization Strength', options=[0.1, 0.5, 1.0, 5.0, 10.0], value=1.0)],
+                'penalty': ['l2'],  # Limited options for stability
+                'solver': ['liblinear']  # Limited options for stability
+            }
+            
+        with st.expander('SVM Parameters'):
+            svm_params = {
+                'C': [st.select_slider('SVM Regularization Strength', options=[0.1, 0.5, 1.0, 5.0, 10.0], value=1.0)],
+                'kernel': [st.selectbox('Kernel', ['rbf', 'linear'], index=0)],
+                'gamma': [st.selectbox('Gamma', ['scale', 'auto'], index=0)]  # Removed '0.1' option for stability
+            }
+
+        col1, col2 = st.columns(2)
+        with col1:
+            train_button = st.button('Train Models')
+        with col2:
+            auto_tune_button = st.button('Auto Tune & Train Models')
+
+        if train_button or auto_tune_button:
             with st.spinner('Training models...'):
                 X_train, X_test, y_train, y_test, scaler, le = load_and_preprocess_data('predictive_maintenance.csv')
                 
                 trainer = ModelTrainer()
+                if not auto_tune_button:  # Manual parameters
+                    # Use manually configured parameters
+                    trainer.models['Random Forest']['params'] = rf_params
+                    trainer.models['Logistic Regression']['params'] = lr_params
+                    trainer.models['SVM']['params'] = svm_params.copy()
+                    if svm_params['gamma'] == '0.1':
+                        trainer.models['SVM']['params']['gamma'] = float(svm_params['gamma'])
+                else:
+                    # Use auto-tuning parameters
+                    for model_name in trainer.models:
+                        trainer.models[model_name]['params'] = trainer.models[model_name]['auto_params']
+                    st.info('Using automated hyperparameter tuning with extended parameter ranges.')
+                
                 trainer.train_models(X_train, y_train)
                 results = trainer.evaluate_models(X_test, y_test)
                 
@@ -335,7 +223,8 @@ def main():
             
             # Model selection
             model_names = list(st.session_state.trainer.trained_models.keys())
-            selected_model = st.selectbox('Select Model', model_names)
+            selected_model = st.selectbox('Select Model', model_names, 
+                format_func=lambda x: x)  # Remove any formatting/truncating
             
             if st.button('Predict'):
                 # Prepare input data
@@ -370,7 +259,9 @@ def main():
             
             # Individual model analysis
             st.subheader('Individual Model Analysis')
-            model_name = st.selectbox('Select Model', list(st.session_state.results.keys()))
+            model_name = st.selectbox('Select Model', 
+                list(st.session_state.results.keys()),
+                format_func=lambda x: x)  # Remove any formatting/truncating
             
             if model_name:
                 model_results = st.session_state.results[model_name]

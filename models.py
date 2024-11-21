@@ -7,6 +7,7 @@ import numpy as np
 import pickle
 import os
 import streamlit as st
+import pandas as pd
 
 class ModelTrainer:
     def __init__(self):
@@ -18,12 +19,23 @@ class ModelTrainer:
                     'max_depth': [10, 20, 30, None],
                     'min_samples_split': [2, 5, 10],
                     'min_samples_leaf': [1, 2, 4]
+                },
+                'auto_params': {
+                    'n_estimators': [50, 100, 200, 300, 400],
+                    'max_depth': [5, 10, 15, 20, 25, 30, None],
+                    'min_samples_split': [2, 4, 5, 8, 10],
+                    'min_samples_leaf': [1, 2, 3, 4]
                 }
             },
             'Logistic Regression': {
                 'model': LogisticRegression(random_state=42),
                 'params': {
                     'C': [0.1, 1.0, 10.0],
+                    'penalty': ['l1', 'l2'],
+                    'solver': ['liblinear', 'saga']
+                },
+                'auto_params': {
+                    'C': [0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
                     'penalty': ['l1', 'l2'],
                     'solver': ['liblinear', 'saga']
                 }
@@ -34,6 +46,11 @@ class ModelTrainer:
                     'C': [0.1, 1.0, 10.0],
                     'kernel': ['rbf', 'linear'],
                     'gamma': ['scale', 'auto', 0.1]
+                },
+                'auto_params': {
+                    'C': [0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
+                    'kernel': ['rbf', 'linear'],
+                    'gamma': ['scale', 'auto', 0.001, 0.01, 0.1, 1.0]
                 }
             }
         }
@@ -104,7 +121,8 @@ class ModelTrainer:
     def save_model(self, model_name, model):
         try:
             os.makedirs('trained models', exist_ok=True)
-            save_path = os.path.join('trained models', f'{model_name}.pkl')
+            timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+            save_path = os.path.join('trained models', f'{model_name}_{timestamp}.pkl')
             
             # Calculate metrics if X_test and y_test are available
             accuracy = None
