@@ -50,7 +50,6 @@ def load_trained_models():
 
 def main():
     st.title('Predictive Maintenance Application')
-    st.sidebar.title('Navigation')
     
     # Initialize session state
     if 'trained_models' not in st.session_state:
@@ -100,14 +99,18 @@ def main():
             st.session_state.scaler = scaler
         except Exception as e:
             st.error(f"Error loading data preprocessing components: {str(e)}")
+
+    # Replace radio buttons with tabs
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📊 Data Exploration", 
+        "🔧 Model Training", 
+        "🎯 Prediction", 
+        "📈 Model Comparison",
+        "❓ FAQ & Technical Details"
+    ])
     
-    # Existing navigation and page selection code would continue here
-    page = st.sidebar.radio('Select a Page', 
-        ['Data Exploration', 'Model Training', 'Prediction', 'Model Comparison'])
-    
-    # Implementation of each page would follow based on the previous page logic
-    if page == 'Data Exploration':
-        # Data exploration page implementation
+    # Data Exploration tab
+    with tab1:
         df = load_raw_data()
         st.header('Data Exploration')
         
@@ -136,13 +139,14 @@ def main():
             st.subheader('Failure Type Distribution')
             st.plotly_chart(plot_failure_type_distribution(df))
     
-    elif page == 'Model Training':
+    # Model Training tab
+    with tab2:
         st.header('Model Training')
         
-        # Hyperparameter tuning UI
-        st.subheader('Hyperparameter Configuration')
-        
-        with st.expander('Random Forest Parameters'):
+        # Keep existing model training code
+        with st.expander('Hyperparameter Configuration'):
+            # Random Forest Parameters
+            st.subheader('Random Forest Parameters')
             rf_params = {
                 'n_estimators': [st.slider('Number of Trees', 50, 500, 200, 50)],
                 'max_depth': [st.slider('Maximum Depth', 5, 50, 20, 5)],
@@ -150,18 +154,20 @@ def main():
                 'min_samples_leaf': [st.slider('Minimum Samples Leaf', 1, 10, 2, 1)]
             }
             
-        with st.expander('Logistic Regression Parameters'):
+            # Logistic Regression Parameters
+            st.subheader('Logistic Regression Parameters')
             lr_params = {
                 'C': [st.select_slider('Regularization Strength', options=[0.1, 0.5, 1.0, 5.0, 10.0], value=1.0)],
-                'penalty': ['l2'],  # Limited options for stability
-                'solver': ['liblinear']  # Limited options for stability
+                'penalty': ['l2'],
+                'solver': ['liblinear']
             }
             
-        with st.expander('SVM Parameters'):
+            # SVM Parameters
+            st.subheader('SVM Parameters')
             svm_params = {
                 'C': [st.select_slider('SVM Regularization Strength', options=[0.1, 0.5, 1.0, 5.0, 10.0], value=1.0)],
                 'kernel': [st.selectbox('Kernel', ['rbf', 'linear'], index=0)],
-                'gamma': [st.selectbox('Gamma', ['scale', 'auto'], index=0)]  # Removed '0.1' option for stability
+                'gamma': [st.selectbox('Gamma', ['scale', 'auto'], index=0)]
             }
 
         col1, col2 = st.columns(2)
@@ -170,6 +176,7 @@ def main():
         with col2:
             auto_tune_button = st.button('Auto Tune & Train Models')
 
+        # Rest of the existing training code
         if train_button or auto_tune_button:
             with st.spinner('Training models...'):
                 X_train, X_test, y_train, y_test, scaler, le = load_and_preprocess_data('predictive_maintenance.csv')
@@ -205,26 +212,30 @@ def main():
             st.plotly_chart(plot_model_comparison(st.session_state.results))
             st.plotly_chart(plot_cv_scores(st.session_state.trainer.cv_results))
     
-    elif page == 'Prediction':
+    # Prediction tab
+    with tab3:
         st.header('Maintenance Prediction')
         
         if not st.session_state.trained_models:
             st.warning('No trained models available. Please train models first or load existing models.')
         else:
-            # Input form for prediction
+            # Keep existing prediction code
             st.subheader('Input Machine Parameters')
             
-            machine_type = st.selectbox('Machine Type', ['L', 'M', 'H'])
-            air_temp = st.number_input('Air Temperature [K]', min_value=290.0, max_value=305.0, value=298.0)
-            process_temp = st.number_input('Process Temperature [K]', min_value=300.0, max_value=315.0, value=308.0)
-            rotation_speed = st.number_input('Rotational Speed [rpm]', min_value=1000, max_value=3000, value=1500)
-            torque = st.number_input('Torque [Nm]', min_value=3.0, max_value=80.0, value=40.0)
-            tool_wear = st.number_input('Tool Wear [min]', min_value=0, max_value=250, value=0)
+            col1, col2 = st.columns(2)
+            with col1:
+                machine_type = st.selectbox('Machine Type', ['L', 'M', 'H'])
+                air_temp = st.number_input('Air Temperature [K]', min_value=290.0, max_value=305.0, value=298.0)
+                process_temp = st.number_input('Process Temperature [K]', min_value=300.0, max_value=315.0, value=308.0)
             
-            # Model selection
+            with col2:
+                rotation_speed = st.number_input('Rotational Speed [rpm]', min_value=1000, max_value=3000, value=1500)
+                torque = st.number_input('Torque [Nm]', min_value=3.0, max_value=80.0, value=40.0)
+                tool_wear = st.number_input('Tool Wear [min]', min_value=0, max_value=250, value=0)
+            
+            # Model selection and prediction
             model_names = list(st.session_state.trainer.trained_models.keys())
-            selected_model = st.selectbox('Select Model', model_names, 
-                format_func=lambda x: x)  # Remove any formatting/truncating
+            selected_model = st.selectbox('Select Model', model_names)
             
             if st.button('Predict'):
                 # Prepare input data
@@ -247,40 +258,184 @@ def main():
                 st.write(f'Failure Probability: {probabilities[1]:.2%}')
                 st.write(f'Normal Operation Probability: {probabilities[0]:.2%}')
     
-    elif page == 'Model Comparison':
+    # Model Comparison tab
+    with tab4:
         st.header('Model Comparison')
         
         if not st.session_state.results:
             st.warning('No model results available. Please train models first or load existing models.')
         else:
-            # Overall performance comparison
+            # Add unique key to the first model comparison plot
             st.subheader('Model Performance Comparison')
-            st.plotly_chart(plot_model_comparison(st.session_state.results))
+            st.plotly_chart(plot_model_comparison(st.session_state.results), key='model_comparison_tab4')
             
-            # Individual model analysis
             st.subheader('Individual Model Analysis')
-            model_name = st.selectbox('Select Model', 
-                list(st.session_state.results.keys()),
-                format_func=lambda x: x)  # Remove any formatting/truncating
+            model_name = st.selectbox('Select Model for Detailed Analysis', 
+                list(st.session_state.results.keys()))
             
             if model_name:
                 model_results = st.session_state.results[model_name]
                 
-                # Classification Report
+                # Add unique keys to all plotly charts
                 st.write('Classification Report')
-                st.plotly_chart(plot_classification_report(model_results['classification_report']))
+                st.plotly_chart(plot_classification_report(model_results['classification_report']), 
+                              key=f'classification_report_{model_name}')
                 
-                # Confusion Matrix
                 st.write('Confusion Matrix')
-                st.plotly_chart(plot_confusion_matrix(model_results['confusion_matrix'], model_name))
+                st.plotly_chart(plot_confusion_matrix(model_results['confusion_matrix'], model_name), 
+                              key=f'confusion_matrix_{model_name}')
                 
-                # Feature Importance
                 if model_name in st.session_state.trainer.trained_models:
                     model = st.session_state.trainer.trained_models[model_name]
                     X_train, _, y_train, _, _, _ = load_and_preprocess_data('predictive_maintenance.csv')
                     feature_names = ['Type', 'Air temperature', 'Process temperature', 
                                    'Rotational speed', 'Torque', 'Tool wear']
-                    st.plotly_chart(plot_feature_importance(model, feature_names, X_train, y_train))
+                    st.plotly_chart(plot_feature_importance(model, feature_names, X_train, y_train),
+                                  key=f'feature_importance_{model_name}')
+
+    # FAQ tab
+    with tab5:
+        st.header("Technical Documentation & FAQ")
+        
+        st.subheader("🔧 Tech Stack")
+        st.markdown("""
+        **Frontend:**
+        - Streamlit: Real-time web application framework
+        - Plotly: Interactive visualization library
+        
+        **Backend:**
+        - Python 3.8+
+        - Scikit-learn: ML model implementation and evaluation
+        - Pandas: Data manipulation and preprocessing
+        - NumPy: Numerical computations
+        
+        **Model Persistence:**
+        - Pickle: Model serialization
+        - Local file system for model storage
+        
+        **Development Tools:**
+        - Git: Version control
+        - Virtual Environment: Dependency isolation
+        """)
+
+        st.subheader("🔄 Application Workflow")
+        
+        with st.expander("📊 Data Exploration Tab"):
+            st.markdown("""
+            **Purpose:** Data analysis and visualization module
+            
+            **Key Features:**
+            - Feature distribution analysis using Plotly histograms
+            - Correlation matrix visualization using Plotly heatmaps
+            - Feature-target relationship analysis
+            - Machine type and failure distribution insights
+            
+            **Technical Implementation:**
+            - Pandas for data manipulation
+            - Plotly for interactive visualizations
+            - Visualization functions in `visualization.py`
+            """)
+            
+        with st.expander("🔧 Model Training Tab"):
+            st.markdown("""
+            **Purpose:** Model training and hyperparameter optimization interface
+            
+            **Key Features:**
+            - Implementation of multiple ML algorithms:
+                - Random Forest Classifier
+                - Logistic Regression
+                - Support Vector Machine
+            - GridSearchCV for hyperparameter optimization
+            - Cross-validation for model validation
+            
+            **Technical Implementation:**
+            - Scikit-learn's model implementations
+            - ModelTrainer class in `models.py`
+            - Manual and automated hyperparameter tuning options
+            """)
+            
+        with st.expander("🎯 Prediction Tab"):
+            st.markdown("""
+            **Purpose:** Real-time machine failure prediction interface
+            
+            **Key Features:**
+            - Input interface for machine parameters
+            - Real-time predictions using trained models
+            - Probability scores for failure prediction
+            
+            **Technical Implementation:**
+            - StandardScaler for feature scaling
+            - Model inference using trained models
+            - Streamlit session state for model persistence
+            """)
+            
+        with st.expander("📈 Model Comparison Tab"):
+            st.markdown("""
+            **Purpose:** Model evaluation and comparison
+            
+            **Key Features:**
+            - Performance metrics visualization
+            - Classification reports
+            - Confusion matrices
+            - Feature importance analysis (for supported models)
+            
+            **Technical Implementation:**
+            - Scikit-learn's evaluation metrics
+            - Plotly visualization functions
+            - Dynamic model selection
+            """)
+            
+        st.subheader("🔍 Technical Implementation Details")
+        
+        with st.expander("Model Architecture & Training"):
+            st.markdown("""
+            **Data Pipeline:**
+            1. Data Preprocessing:
+               - Standard scaling for numerical features
+               - Label encoding for categorical variables
+               - Train-test split with stratification
+            
+            **Training Process:**
+            1. Cross-validation (k=5 folds)
+            2. GridSearchCV for hyperparameter optimization
+            3. Model evaluation on hold-out test set
+            
+            **Model Storage:**
+            - Models saved with:
+                - Training timestamp
+                - Performance metrics
+                - Hyperparameters
+                - Cross-validation results
+            """)
+            
+        with st.expander("Performance Considerations"):
+            st.markdown("""
+            **Current Implementations:**
+            - Basic data loading with Pandas
+            - GridSearchCV parallel processing
+            - Session state for model persistence
+            - Streamlit caching for data loading
+            
+            **Memory Handling:**
+            - Model loading on demand
+            - Basic preprocessing pipeline
+            """)
+            
+        with st.expander("Code Organization"):
+            st.markdown("""
+            **Project Structure:**
+            - Modular architecture with separate files for:
+                - Data preprocessing (`preprocessing.py`)
+                - Model training (`models.py`)
+                - Visualization (`visualization.py`)
+                - Main application (`main.py`)
+            
+            **Error Handling:**
+            - Basic error handling for:
+                - Data loading
+                - Model training
+                - Prediction operations
+            """)
 
 if __name__ == '__main__':
     main()
