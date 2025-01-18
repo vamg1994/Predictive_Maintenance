@@ -253,7 +253,7 @@ def plot_feature_importance(model, feature_names, X, y):
 def plot_feature_distributions(df):
     # Select numerical columns only
     numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
-    numeric_cols = [col for col in numeric_cols if col not in ['Target', 'Failure Type']]
+    numeric_cols = [col for col in numeric_cols if col not in ['Target', 'Failure Type', 'UDI', 'Product ID']]
     
     # Create subplots
     fig = go.Figure()
@@ -298,6 +298,7 @@ def plot_feature_distributions(df):
 def plot_correlation_matrix(df):
     # Calculate correlation matrix
     numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+    numeric_cols = [col for col in numeric_cols if col not in ['Target', 'Failure Type', 'UDI', 'Product ID']]
     corr_matrix = df[numeric_cols].corr()
     
     # Create heatmap

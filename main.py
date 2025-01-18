@@ -51,6 +51,30 @@ def load_trained_models():
 def main():
     st.title('Predictive Maintenance Application')
     
+    # Add sidebar with contact information and rankings
+    with st.sidebar:
+        st.markdown("### Virgilio Madrid - Data Scientist")
+        st.link_button("Portfolio 🌐", "https://portfolio-vam.vercel.app/")
+        st.link_button("LinkedIn 💼", "https://www.linkedin.com/in/vamadrid/")
+        st.link_button("E-Mail 📧", "mailto:virgiliomadrid1994@gmail.com")
+        
+        # Add model rankings if models are trained
+        if 'trained_models' in st.session_state and st.session_state.trained_models:
+            st.subheader("Top 3 Models")
+            results = st.session_state.results
+            if results:
+                # Sort models by accuracy and take top 3
+                sorted_models = sorted(
+                    results.items(), 
+                    key=lambda x: x[1]['accuracy'], 
+                    reverse=True
+                )[:3]  # Only take top 3
+                for model_name, model_data in sorted_models:
+                    accuracy = model_data['accuracy']
+                    st.metric(model_name, f"{accuracy:.2%} accuracy")
+        else:
+            st.info("No trained models available")
+    
     # Initialize session state
     if 'trained_models' not in st.session_state:
         # Try to load pre-trained models
@@ -117,10 +141,29 @@ def main():
         # Feature distribution plots
         st.subheader('Feature Distributions')
         st.plotly_chart(plot_feature_distributions(df))
+        st.markdown("""
+        **Feature Distribution Interpretation:**
+        This plot shows the distribution of each feature in the dataset.
+        X-axis: Feature values
+        Y-axis: Frequency of each feature value \n
+        **Feature Names:**
+        - Air temperature: Temperature of the air in the machine.
+        - Process temperature: Temperature of the process in the machine.
+        - Rotational speed: Speed of the machine.
+        - Torque: Torque of the machine.
+        - Tool wear: Wear of the tool in the machine.
+        """)
         
         # Correlation matrix
         st.subheader('Feature Correlation Matrix')
         st.plotly_chart(plot_correlation_matrix(df))
+        st.markdown("""
+        **Correlation Matrix Interpretation:**
+        - **Positive Correlation:** Features tend to increase or decrease together.
+        - **Negative Correlation:** Features tend to move in opposite directions.
+        - **Strong Correlation:** Values closer to 1 or -1.
+        - **Weak Correlation:** Values closer to 0.
+        """)
         
         # Feature vs Target plots
         st.subheader('Feature Distribution by Machine Status')
@@ -134,10 +177,19 @@ def main():
         with col1:
             st.subheader('Machine Type Distribution')
             st.plotly_chart(plot_machine_type_distribution(df))
+            st.markdown("""
+            **Machine Type Distribution Interpretation:**
+            This distribution(raw data) shows the percentage of machines for each machine type.
+            """)
         
         with col2:
             st.subheader('Failure Type Distribution')
             st.plotly_chart(plot_failure_type_distribution(df))
+            st.markdown("""
+            **Failure Type Distribution Interpretation:**
+            This distribution(raw data) shows the percentage of failures for each machine type.
+            In data engineering, it was necessary to balance target classes to avoid bias.
+            """)
     
     # Model Training tab
     with tab2:
@@ -176,6 +228,12 @@ def main():
         with col2:
             auto_tune_button = st.button('Auto Tune & Train Models')
 
+        st.markdown("""
+        **Model Training Interpretation:**
+        This section allows you to train the models with the parameters you have configured.
+        You can also use the auto tune button to automatically tune the parameters and train the models.
+        """)
+        
         # Rest of the existing training code
         if train_button or auto_tune_button:
             with st.spinner('Training models...'):
@@ -211,6 +269,39 @@ def main():
             st.subheader('Training Results')
             st.plotly_chart(plot_model_comparison(st.session_state.results))
             st.plotly_chart(plot_cv_scores(st.session_state.trainer.cv_results))
+            st.markdown("""
+ #### **Cross-Validation**
+- **Purpose**: Evaluates model performance during training and helps fine-tune hyperparameters or select the best model.
+- **How It Works**: 
+  - The dataset is split into multiple folds (e.g., 5 or 10). 
+  - The model is trained on some folds and validated on the remaining fold. 
+  - This process is repeated for each fold, and results are averaged.
+- **Key Point**: Performed on the **training dataset** only; the test set is not used at this stage.
+- **Benefit**: Reduces overfitting by providing a robust evaluation on unseen splits of the training data.
+
+#### **Test Set**
+- **Purpose**: Evaluates the final model's performance on unseen, untouched data.
+- **How It Works**: 
+  - After all training and validation (including cross-validation), the final model is tested on the separate test set. 
+  - The test set provides a proxy for future data.
+- **Key Point**: The test set must remain **completely separate** from training and validation to ensure unbiased evaluation.
+- **Benefit**: Gives an accurate estimate of the model’s real-world generalization.
+
+---
+
+### **Key Differences**
+| Aspect              | Cross-Validation                          | Test Set                                  |
+|---------------------|-------------------------------------------|------------------------------------------|
+| **When Used**       | During training                           | After training and tuning                |
+| **Purpose**         | Model selection and hyperparameter tuning | Final model evaluation                   |
+| **Data Used**       | Training dataset (split into folds)       | Separate, unseen dataset                 |
+| **Goal**            | Reduce overfitting and improve robustness | Assess real-world performance            |
+
+---
+
+**Analogy**:  
+Cross-validation is like practice exams to prepare for the final test. The test set is the actual exam that determines how well the model performs in the real world.
+            """)
     
     # Prediction tab
     with tab3:
@@ -221,6 +312,13 @@ def main():
         else:
             # Keep existing prediction code
             st.subheader('Input Machine Parameters')
+            st.markdown("""
+            **Input Machine Parameters Interpretation:**
+            This section allows you to input the machine parameters for prediction.
+            The output will be the probability of failure or normal operation.
+            You can select model from the dropdown menu.
+            """)
+            
             
             col1, col2 = st.columns(2)
             with col1:
@@ -280,10 +378,33 @@ def main():
                 st.write('Classification Report')
                 st.plotly_chart(plot_classification_report(model_results['classification_report']), 
                               key=f'classification_report_{model_name}')
+                st.markdown("""
+#### **1. Precision**
+- **Meaning**: Proportion of correct positive predictions out of all positive predictions.
+- **Formula**: True Positives / (True Positives + False Positives)
+
+#### **2. Recall**
+- **Meaning**: Proportion of actual positives correctly identified.
+- **Formula**: True Positives / (True Positives + False Negatives)
+
+#### **3. F1-Score**
+- **Meaning**: Harmonic mean of Precision and Recall.
+- **Formula**: 2 × (Precision × Recall) / (Precision + Recall)
+
+#### **4. Support**
+- **Meaning**: Number of true instances of each class in the dataset.
+                """)
                 
                 st.write('Confusion Matrix')
                 st.plotly_chart(plot_confusion_matrix(model_results['confusion_matrix'], model_name), 
                               key=f'confusion_matrix_{model_name}')
+                st.markdown("""
+                **Confusion Matrix Interpretation:**
+                - **True Positives (TP)**: Correctly predicted as positive.
+                - **True Negatives (TN)**: Correctly predicted as negative.
+                - **False Positives (FP)**: Incorrectly predicted as positive.
+                - **False Negatives (FN)**: Incorrectly predicted as negative.
+                """)
                 
                 if model_name in st.session_state.trainer.trained_models:
                     model = st.session_state.trainer.trained_models[model_name]
@@ -292,10 +413,25 @@ def main():
                                    'Rotational speed', 'Torque', 'Tool wear']
                     st.plotly_chart(plot_feature_importance(model, feature_names, X_train, y_train),
                                   key=f'feature_importance_{model_name}')
+                    st.markdown("""
+                    **Feature Importance Interpretation:**
+                    This plot shows the importance of each feature in the model.
+                    """)
 
     # FAQ tab
     with tab5:
+        
         st.header("Technical Documentation & FAQ")
+        
+        st.markdown("""
+        **Technical Documentation & FAQ Interpretation:**
+        This section provides technical details and answers to common questions about the application.
+        
+        **What is the purpose of this project?**
+        This project is a predictive maintenance application that uses machine learning to predict the probability of failure or normal operation of a machine.
+        This kind of application can be used in many industries such as aerospace, automotive, manufacturing, etc.
+        Also, machine learning may help us predict customer churn, fraud detection, etc.
+        """)
         
         st.subheader("🔧 Tech Stack")
         st.markdown("""
@@ -304,7 +440,7 @@ def main():
         - Plotly: Interactive visualization library
         
         **Backend:**
-        - Python 3.8+
+        - Python
         - Scikit-learn: ML model implementation and evaluation
         - Pandas: Data manipulation and preprocessing
         - NumPy: Numerical computations
